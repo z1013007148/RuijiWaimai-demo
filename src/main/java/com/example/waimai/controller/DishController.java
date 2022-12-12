@@ -35,13 +35,11 @@ public class DishController {
     final DishService dishService;
     final DishFlavorService dishFlavorService;
     final CategoryService categoryService;
-    final RedisCacheManager redisCacheManager;
 
-    public DishController(DishService dishService, DishFlavorService dishFlavorService, CategoryService categoryService, RedisCacheManager redisCacheManager) {
+    public DishController(DishService dishService, DishFlavorService dishFlavorService, CategoryService categoryService) {
         this.dishService = dishService;
         this.dishFlavorService = dishFlavorService;
         this.categoryService = categoryService;
-        this.redisCacheManager = redisCacheManager;
     }
 
     /**
@@ -50,7 +48,7 @@ public class DishController {
      * @param dishDto
      * @return
      */
-    @CachePut(value="dishCache", key="#dishDto.categoryId")
+    @CacheEvict(value="dishCache",allEntries = true) // 缓存的是List<DishDto>，不删除的话list返回的还是老的缓存
     @PostMapping
     public Result<String> save(@RequestBody DishDto dishDto) {
         //更新sql
@@ -69,7 +67,7 @@ public class DishController {
      * @param pageSize
      * @return
      */
-
+    @Cacheable(value="dishCache",key="#currentPage+'_'+#pageSize+'_'+#name")
     @GetMapping("/{currentPage}/{pageSize}/{name}")
     public Result<Page<Dish>> getByPage(@PathVariable int currentPage, @PathVariable int pageSize, @PathVariable String name) {
         //分页构造器
@@ -92,7 +90,7 @@ public class DishController {
      * @param
      * @return
      */
-    @Cacheable(value="dishCache",key="#dish.categoryId")
+    @Cacheable(value="dishCache",key="#dish.categoryId +'_list'")
     @GetMapping("/list")
     public Result<List<DishDto>> getList(Dish dish) {
         Long categoryId = dish.getCategoryId();
@@ -132,13 +130,13 @@ public class DishController {
      * @param id
      * @return
      */
-    @CacheEvict(value="dishCache",key="#id")
+    @CacheEvict(value="dishCache",allEntries = true)
     @DeleteMapping("/{id}")
-    public Result<String> delete(@PathVariable Long id) {
+    public Result<Long> delete(@PathVariable Long id) {
         Dish byId = dishService.getById(id);
         Long categoryId = byId.getCategoryId();
         dishService.deleteWithFlavor(id);
-        return Result.success(null, "删除成功");
+        return Result.success(categoryId, "删除成功");
 
     }
 
@@ -148,7 +146,7 @@ public class DishController {
      * @param dishDto
      * @return
      */
-    @CacheEvict(value="dishCache",key="#dishDto.categoryId")
+    @CacheEvict(value="dishCache",allEntries = true)
     @PutMapping
     public Result<String> update(@RequestBody DishDto dishDto) {
         dishService.updateWithFlavor(dishDto);
